@@ -1,34 +1,23 @@
 // =====================================================================
-// PortalSteps.groovy — universal step definitions for the
-// Project Provisioning Portal BDD tests.
-//
-// Drop this in: Include/scripts/groovy/PortalSteps.groovy
-// (or under any package; just make the folder path match `package`.)
+// PortalSteps.groovy — step definitions for the Project Provisioning
+// Portal BDD tests.  Drop into Include/scripts/groovy/PortalSteps.groovy
 //
 // Designed for cucumber-jvm 7.x (Katalon Studio 10.x).
 //
-// HOW TO EXTEND WHEN A NEW STEP WORDING APPEARS
-//   1. Run the feature. The Cucumber HTML report lists every undefined
-//      step and prints a copy-pasteable @Then snippet.
-//   2. Find the closest existing method below and ADD another annotation
-//      to it (don't write a new method). Example:
-//         @Then("the response field {string} should equal {string}")
-//         @Then("the JSON field {string} matches {string}")   // new
-//         void fieldEquals(String key, String expected) { ... }
-//   3. For small wording variations ("should" / "is" / "JSON" / plurals),
-//      prefer Cucumber-expression optional words:
-//         (should )     ← matches "" or "should "
-//         (JSON )       ← matches "" or "JSON "
-//         item(s)       ← matches "item" or "items"
-//         equal/equals  ← matches either word
+// CUCUMBER EXPRESSION RULES (relevant to extending this file):
+//   {string}        — quoted string parameter
+//   {int}           — integer parameter
+//   (word )         — that word (with its trailing space) is OPTIONAL
+//                     ⚠ no `?` after — CE is not regex
+//   word1/word2     — alternation between two single words
+//                     ⚠ no `|` — CE uses `/`, not `|`
+//   For multi-word variations ("should be" vs "is"), use TWO separate
+//   @Then annotations on the same method.
 //
-// STATE NOTES
-//   - All scenario state is INSTANCE state (not static) so it resets
-//     cleanly per scenario via @Before.
-//   - storedVars supports {var} interpolation inside paths and JSON
-//     bodies, so you can do POST /api/projects/{project_id}/members.
-//   - JSON paths support dotted + indexed access: "projects[0].name",
-//     "member.user_email".
+// IMPORTANT: Cucumber doesn't care whether the annotation is @Given,
+// @When, or @Then — only the TEXT matters for matching.  If you put
+// @Then("X") and @Given("X") on the same method, that's a DUPLICATE
+// step definition error.  Every annotation text below is unique.
 // =====================================================================
 
 import io.cucumber.java.en.Given
@@ -145,12 +134,16 @@ class PortalSteps {
     // ═════ BACKGROUND / SETUP ═════════════════════════════════════
 
     @Given("the portal is running at {string}")
+    void portalIsRunningAt(String url) { baseUrl = url }
+
     @Given("the portal API is running at {string}")
+    void portalApiIsRunningAt(String url) { baseUrl = url }
+
     @Given("the Project Provisioning Portal is running at {string}")
+    void provisioningPortalIsRunningAt(String url) { baseUrl = url }
+
     @Given("the Project Provisioning Portal API is running at {string}")
-    void portalIsRunningAt(String url) {
-        baseUrl = url
-    }
+    void provisioningPortalApiIsRunningAt(String url) { baseUrl = url }
 
     @Given("all projects have been reset via {string}")
     void resetProjectsByDescription(String _description) {
@@ -168,14 +161,24 @@ class PortalSteps {
     }
 
     @Given("I am on the landing page at {string}")
+    void onLandingPageAt(String url) {
+        openBrowser(url)
+    }
+
     @Given("I navigate to the portal at {string}")
-    void onLandingPage(String url) {
+    void navigateToPortalAt(String url) {
         openBrowser(url)
     }
 
     @Given("I am on the wizard view")
-    @Given("I have navigated to the wizard view")
     void onWizardViewDefault() {
+        openBrowser(baseUrl + "/")
+        byTestId("card-create").click()
+        Thread.sleep(300)
+    }
+
+    @Given("I have navigated to the wizard view")
+    void haveNavigatedToWizard() {
         openBrowser(baseUrl + "/")
         byTestId("card-create").click()
         Thread.sleep(300)
@@ -188,75 +191,72 @@ class PortalSteps {
         Thread.sleep(300)
     }
 
-    // I navigate / I am at — works as Given OR When
-    @Given("I navigate to {string}")
+    // Note: a single @When matches the step anywhere (Given/When/Then/And).
+    // The keyword in the .feature does not affect matching.
     @When("I navigate to {string}")
-    @When("I navigate to {string} in the browser")
     void navigateBrowser(String url) {
+        openBrowser(url)
+    }
+
+    @When("I navigate to {string} in the browser")
+    void navigateBrowserVerbose(String url) {
         openBrowser(url)
     }
 
     // ═════ HTTP ACTIONS ════════════════════════════════════════════
 
-    @Given("I send a GET request to {string}")
     @When("I send a GET request to {string}")
-    void httpGet(String path) {
-        sendGet(path)
-    }
+    void httpGet(String path) { sendGet(path) }
 
-    @Given("I send a POST request to {string} with body:")
     @When("I send a POST request to {string} with body:")
-    void httpPostWithBody(String path, String body) {
-        sendPost(path, body)
-    }
+    void httpPostWithBody(String path, String body) { sendPost(path, body) }
 
-    @Given("I send a POST request to {string} with no body")
     @When("I send a POST request to {string} with no body")
-    void httpPostNoBody(String path) {
-        sendPost(path, "")
-    }
+    void httpPostNoBody(String path) { sendPost(path, "") }
 
-    @Given("I send a DELETE request to {string}")
     @When("I send a DELETE request to {string}")
-    void httpDelete(String path) {
-        sendDelete(path)
-    }
+    void httpDelete(String path) { sendDelete(path) }
 
     // ═════ STORE / REMEMBER VALUES ═════════════════════════════════
 
-    // Covers all of:
-    //   I store the response JSON field "X" as "Y"
-    //   I remember the response field "X" as "Y"
-    @Given("I store the response (JSON )field {string} as {string}")
-    @When("I store the response (JSON )field {string} as {string}")
-    @Then("I store the response (JSON )field {string} as {string}")
-    @Given("I remember the response (JSON )field {string} as {string}")
-    @When("I remember the response (JSON )field {string} as {string}")
+    @When("I store the response JSON field {string} as {string}")
     void storeJsonField(String fieldPath, String name) {
         Object v = jsonPath(fieldPath)
         storedVars[name] = v == null ? "" : v.toString()
     }
 
-    @When("I store the response body as {string}")
-    void storeBody(String name) {
-        storedResponses[name] = lastBody
+    @When("I store the response field {string} as {string}")
+    void storeField(String fieldPath, String name) {
+        Object v = jsonPath(fieldPath)
+        storedVars[name] = v == null ? "" : v.toString()
     }
 
-    @When("the page JavaScript has finished executing")
-    void waitForJs() {
-        Thread.sleep(500)
+    @When("I remember the response JSON field {string} as {string}")
+    void rememberJsonField(String fieldPath, String name) {
+        Object v = jsonPath(fieldPath)
+        storedVars[name] = v == null ? "" : v.toString()
     }
+
+    @When("I remember the response field {string} as {string}")
+    void rememberField(String fieldPath, String name) {
+        Object v = jsonPath(fieldPath)
+        storedVars[name] = v == null ? "" : v.toString()
+    }
+
+    @When("I store the response body as {string}")
+    void storeBody(String name) { storedResponses[name] = lastBody }
+
+    @When("the page JavaScript has finished executing")
+    void waitForJs() { Thread.sleep(500) }
 
     // ═════ UI ACTIONS ══════════════════════════════════════════════
 
-    @Given("I click the element with data-testid {string}")
     @When("I click the element with data-testid {string}")
     void clickTestId(String testId) {
         byTestId(testId).click()
         Thread.sleep(300)
     }
 
-    @Given("I type {string} into the element with data-testid {string}")
     @When("I type {string} into the element with data-testid {string}")
     void typeInto(String text, String testId) {
         WebElement el = byTestId(testId)
@@ -264,20 +264,19 @@ class PortalSteps {
         el.sendKeys(text)
     }
 
-    // Covers "I select X from Y", "I have selected X from Y", "I select project X from Y"
-    @Given("I select {string} from the element with data-testid {string}")
-    @Given("I have selected {string} from the element with data-testid {string}")
     @When("I select {string} from the element with data-testid {string}")
-    @Given("I select project {string} from the element with data-testid {string}")
-    @When("I select project {string} from the element with data-testid {string}")
     void selectFromTestId(String value, String testId) {
-        Select sel = new Select(byTestId(testId))
-        try {
-            sel.selectByValue(value)
-        } catch (Exception ignored) {
-            sel.selectByVisibleText(value)
-        }
-        Thread.sleep(200)
+        selectOption(testId, value)
+    }
+
+    @When("I have selected {string} from the element with data-testid {string}")
+    void haveSelectedFromTestId(String value, String testId) {
+        selectOption(testId, value)
+    }
+
+    @When("I select project {string} from the element with data-testid {string}")
+    void selectProjectFromTestId(String value, String testId) {
+        selectOption(testId, value)
     }
 
     @When("I select the blank placeholder option from the element with data-testid {string}")
@@ -287,20 +286,54 @@ class PortalSteps {
         Thread.sleep(200)
     }
 
-    // ═════ HTTP STATUS ═════════════════════════════════════════════
+    private void selectOption(String testId, String value) {
+        Select sel = new Select(byTestId(testId))
+        try { sel.selectByValue(value) }
+        catch (Exception ignored) { sel.selectByVisibleText(value) }
+        Thread.sleep(200)
+    }
 
-    // Matches "the response status should be 200" and "the HTTP response status is 200"
-    @Then("the (HTTP )response status (should be|is) {int}")
-    @Given("the (HTTP )response status (should be|is) {int}")
-    void responseStatus(String _verb, int expected) {
+    // ═════ HTTP STATUS ════════════════════════════════════════════
+    // "the response status should be 200"
+    // "the HTTP response status is 200"
+
+    @Then("the response status should be {int}")
+    void responseStatusShouldBe(int expected) {
+        assertStatus(expected)
+    }
+
+    @Then("the HTTP response status is {int}")
+    void httpResponseStatusIs(int expected) {
+        assertStatus(expected)
+    }
+
+    @Then("the response status is {int}")
+    void responseStatusIs(int expected) {
+        assertStatus(expected)
+    }
+
+    @Then("the HTTP response status should be {int}")
+    void httpResponseStatusShouldBe(int expected) {
+        assertStatus(expected)
+    }
+
+    private void assertStatus(int expected) {
         assertEquals("HTTP status mismatch. Body: ${lastBody.take(500)}".toString(),
                 expected, lastStatus)
     }
 
     // ═════ CONTENT-TYPE ════════════════════════════════════════════
 
-    @Then("the response Content-Type (header )?(should )?contain(s)? {string}")
-    void contentTypeContains(String _h, String _s, String _suffix, String expected) {
+    @Then("the response Content-Type header contains {string}")
+    void contentTypeHeaderContains(String expected) { assertContentTypeContains(expected) }
+
+    @Then("the response Content-Type should contain {string}")
+    void contentTypeShouldContain(String expected) { assertContentTypeContains(expected) }
+
+    @Then("the response Content-Type contains {string}")
+    void contentTypeContains(String expected) { assertContentTypeContains(expected) }
+
+    private void assertContentTypeContains(String expected) {
         String ct = ""
         for (entry in lastHeaders.entrySet()) {
             if (entry.key != null && entry.key.equalsIgnoreCase("Content-Type")) {
@@ -313,9 +346,16 @@ class PortalSteps {
 
     // ═════ BODY-LEVEL ASSERTIONS ═══════════════════════════════════
 
-    // Covers "the response body should contain X" and "the response body contains the string X"
-    @Then("the response body (should contain|contains the string|contains) {string}")
-    void bodyContains(String _verb, String fragment) {
+    @Then("the response body should contain {string}")
+    void bodyShouldContain(String fragment) { assertBodyContains(fragment) }
+
+    @Then("the response body contains the string {string}")
+    void bodyContainsString(String fragment) { assertBodyContains(fragment) }
+
+    @Then("the response body contains {string}")
+    void bodyContains(String fragment) { assertBodyContains(fragment) }
+
+    private void assertBodyContains(String fragment) {
         assertTrue("Body did not contain '${fragment}'. Head: ${lastBody.take(500)}".toString(),
                 lastBody.contains(fragment))
     }
@@ -325,9 +365,16 @@ class PortalSteps {
         assertTrue("Body is not a JSON object", jsonBody() instanceof Map)
     }
 
-    // Covers "has the key" and "should have a top-level key"
-    @Then("the response (JSON )?(body|object) (has|should have a top-level) key {string}")
-    void bodyHasKey(String _j, String _bo, String _verb, String key) {
+    @Then("the response JSON object has the key {string}")
+    void jsonObjectHasKey(String key) { assertBodyHasKey(key) }
+
+    @Then("the response body should have a top-level key {string}")
+    void bodyShouldHaveTopLevelKey(String key) { assertBodyHasKey(key) }
+
+    @Then("the response body has the key {string}")
+    void bodyHasKey(String key) { assertBodyHasKey(key) }
+
+    private void assertBodyHasKey(String key) {
         def parsed = jsonBody()
         assertTrue("Body missing key '${key}'".toString(),
                 parsed instanceof Map && ((Map) parsed).containsKey(key))
@@ -340,17 +387,30 @@ class PortalSteps {
 
     // ═════ JSON FIELD — TYPE / SHAPE ═══════════════════════════════
 
-    // "the response JSON field X is an array" / "the value of X should be a JSON array" / "the response field X should be a list"
-    @Then("the response (JSON )?field {string} is an array")
+    @Then("the response JSON field {string} is an array")
+    void jsonFieldIsArray(String key) { assertFieldIsArray(key) }
+
+    @Then("the response field {string} is an array")
+    void fieldIsArray(String key) { assertFieldIsArray(key) }
+
     @Then("the value of {string} should be a JSON array")
-    void fieldIsArray(String key) {
+    void valueShouldBeJsonArray(String key) { assertFieldIsArray(key) }
+
+    private void assertFieldIsArray(String key) {
         assertTrue("'${key}' is not a list".toString(), jsonPath(key) instanceof List)
     }
 
     // exact length
-    @Then("the response (JSON )?field {string} (is an array with exactly|should be a list of length) {int} item(s)?")
-    @Then("the response (JSON )?field {string} (is an array with exactly|should be a list of length) {int}")
-    void fieldArrayLength(String _j, String key, String _verb, int len) {
+    @Then("the response JSON field {string} is an array with exactly {int} items")
+    void jsonFieldArrayLengthItems(String key, int len) { assertFieldArrayLength(key, len) }
+
+    @Then("the response JSON field {string} is an array with exactly {int} item")
+    void jsonFieldArrayLengthItem(String key, int len) { assertFieldArrayLength(key, len) }
+
+    @Then("the response field {string} should be a list of length {int}")
+    void fieldShouldBeListOfLength(String key, int len) { assertFieldArrayLength(key, len) }
+
+    private void assertFieldArrayLength(String key, int len) {
         def v = jsonPath(key)
         assertTrue("'${key}' is not a list".toString(), v instanceof List)
         assertEquals("'${key}' length mismatch (was ${v.size()}, expected ${len})".toString(),
@@ -358,23 +418,37 @@ class PortalSteps {
     }
 
     // at-least length
-    @Then("the response (JSON )?field {string} is an array with at least {int} item(s)?")
-    void fieldArrayAtLeast(String _j, String key, int len) {
+    @Then("the response JSON field {string} is an array with at least {int} items")
+    void jsonFieldArrayAtLeastItems(String key, int len) { assertFieldArrayAtLeast(key, len) }
+
+    @Then("the response JSON field {string} is an array with at least {int} item")
+    void jsonFieldArrayAtLeastItem(String key, int len) { assertFieldArrayAtLeast(key, len) }
+
+    private void assertFieldArrayAtLeast(String key, int len) {
         def v = jsonPath(key)
         assertTrue("'${key}' is not a list".toString(), v instanceof List)
         assertTrue("'${key}' length ${v.size()} < ${len}".toString(), v.size() >= len)
     }
 
-    // empty array
-    @Then("the response (JSON )?field {string} (is|should be) an empty array")
-    void fieldEmptyArray(String _j, String key, String _verb) {
+    @Then("the response JSON field {string} is an empty array")
+    void jsonFieldIsEmptyArray(String key) { assertFieldEmptyArray(key) }
+
+    @Then("the response field {string} should be an empty array")
+    void fieldShouldBeEmptyArray(String key) { assertFieldEmptyArray(key) }
+
+    private void assertFieldEmptyArray(String key) {
         def v = jsonPath(key)
         assertTrue("'${key}' is not a list".toString(), v instanceof List)
         assertEquals("'${key}' is not empty (size=${v.size()})".toString(), 0, v.size())
     }
 
-    @Then("the response (JSON )?field {string} (is|should be) a non-empty string")
-    void fieldNonEmptyString(String _j, String key, String _verb) {
+    @Then("the response JSON field {string} is a non-empty string")
+    void jsonFieldNonEmptyString(String key) { assertFieldNonEmptyString(key) }
+
+    @Then("the response field {string} should be a non-empty string")
+    void fieldShouldBeNonEmptyString(String key) { assertFieldNonEmptyString(key) }
+
+    private void assertFieldNonEmptyString(String key) {
         def v = jsonPath(key)
         assertNotNull("Field '${key}' is null".toString(), v)
         assertFalse("Field '${key}' is empty".toString(), v.toString().isEmpty())
@@ -382,26 +456,39 @@ class PortalSteps {
 
     // ═════ JSON FIELD — VALUE ═════════════════════════════════════
 
-    // covers: "the response JSON field X should equal Y", "the response field X should equal Y"
-    @Then("the response (JSON )?field {string} should equal {string}")
-    void fieldEquals(String _j, String key, String expected) {
+    @Then("the response JSON field {string} should equal {string}")
+    void jsonFieldShouldEqual(String key, String expected) { assertFieldEquals(key, expected) }
+
+    @Then("the response field {string} should equal {string}")
+    void fieldShouldEqual(String key, String expected) { assertFieldEquals(key, expected) }
+
+    private void assertFieldEquals(String key, String expected) {
         def v = jsonPath(key)
         String actual = v == null ? "null" : v.toString()
         assertEquals("Field '${key}' mismatch".toString(),
                 substituteVars(expected), actual)
     }
 
-    @Then("the response (JSON )?field {string} should equal the stored value {string}")
-    void fieldEqualsStored(String _j, String key, String storedName) {
+    @Then("the response JSON field {string} should equal the stored value {string}")
+    void jsonFieldShouldEqualStored(String key, String storedName) { assertFieldEqualsStored(key, storedName) }
+
+    @Then("the response field {string} should equal the stored value {string}")
+    void fieldShouldEqualStored(String key, String storedName) { assertFieldEqualsStored(key, storedName) }
+
+    private void assertFieldEqualsStored(String key, String storedName) {
         def v = jsonPath(key)
         String actual = v == null ? "null" : v.toString()
         assertEquals("Field '${key}' mismatch vs stored '${storedName}'".toString(),
                 storedVars[storedName] ?: "", actual)
     }
 
-    // covers: "the response JSON field X contains Y", "the response field X should contain Y"
-    @Then("the response (JSON )?field {string} (contains|should contain) {string}")
-    void fieldContains(String _j, String key, String _verb, String expected) {
+    @Then("the response JSON field {string} contains {string}")
+    void jsonFieldContains(String key, String expected) { assertFieldContains(key, expected) }
+
+    @Then("the response field {string} should contain {string}")
+    void fieldShouldContain(String key, String expected) { assertFieldContains(key, expected) }
+
+    private void assertFieldContains(String key, String expected) {
         def v = jsonPath(key)
         if (v instanceof List) {
             assertTrue("List '${key}' = ${v} does not contain '${expected}'".toString(),
@@ -412,8 +499,13 @@ class PortalSteps {
         }
     }
 
-    @Then("the response (JSON )?field {string} should NOT contain {string}")
-    void fieldNotContains(String _j, String key, String unexpected) {
+    @Then("the response JSON field {string} should NOT contain {string}")
+    void jsonFieldShouldNotContain(String key, String unexpected) { assertFieldNotContains(key, unexpected) }
+
+    @Then("the response field {string} should NOT contain {string}")
+    void fieldShouldNotContain(String key, String unexpected) { assertFieldNotContains(key, unexpected) }
+
+    private void assertFieldNotContains(String key, String unexpected) {
         def v = jsonPath(key)
         if (v instanceof List) {
             assertFalse("List '${key}' unexpectedly contains '${unexpected}'".toString(),
@@ -426,8 +518,13 @@ class PortalSteps {
 
     // ═════ BARE-ARRAY ASSERTIONS:  the "X" array contains "Y" ═════
 
-    @Then("the {string} array (contains|should contain) {string}")
-    void arrayContains(String key, String _verb, String expected) {
+    @Then("the {string} array contains {string}")
+    void arrayContains(String key, String expected) { assertArrayContains(key, expected) }
+
+    @Then("the {string} array should contain {string}")
+    void arrayShouldContain(String key, String expected) { assertArrayContains(key, expected) }
+
+    private void assertArrayContains(String key, String expected) {
         def v = jsonPath(key)
         assertTrue("'${key}' is not a list".toString(), v instanceof List)
         assertTrue("Array '${key}' = ${v} does not contain '${expected}'".toString(),
@@ -435,7 +532,7 @@ class PortalSteps {
     }
 
     @Then("the {string} array should NOT contain {string}")
-    void arrayNotContains(String key, String unexpected) {
+    void arrayShouldNotContain(String key, String unexpected) {
         def v = jsonPath(key)
         assertTrue("'${key}' is not a list".toString(), v instanceof List)
         assertFalse("Array '${key}' unexpectedly contains '${unexpected}'".toString(),
@@ -452,7 +549,7 @@ class PortalSteps {
     }
 
     @Then("the {string} array should NOT contain an object where {string} equals {string}")
-    void arrayNotContainsObjectWhere(String key, String objKey, String unexpected) {
+    void arrayShouldNotContainObjectWhere(String key, String objKey, String unexpected) {
         def v = jsonPath(key)
         assertTrue("'${key}' is not a list".toString(), v instanceof List)
         String wantNot = substituteVars(unexpected)
@@ -462,10 +559,19 @@ class PortalSteps {
 
     // ═════ REGEX / PATTERN MATCH ═══════════════════════════════════
 
-    // covers UUID v4 + generic pattern variations
-    @Then("the response (JSON )?field {string} matches the (UUID v4 )?pattern {string}")
-    @Then("the response field {string} should match the (UUID v4 )?pattern {string}")
-    void fieldMatchesPattern(String _j, String key, String _u, String pattern) {
+    @Then("the response JSON field {string} matches the UUID v4 pattern {string}")
+    void jsonFieldMatchesUuidV4(String key, String pattern) { assertFieldMatches(key, pattern) }
+
+    @Then("the response JSON field {string} matches the pattern {string}")
+    void jsonFieldMatchesPattern(String key, String pattern) { assertFieldMatches(key, pattern) }
+
+    @Then("the response field {string} should match the UUID v4 pattern {string}")
+    void fieldShouldMatchUuidV4(String key, String pattern) { assertFieldMatches(key, pattern) }
+
+    @Then("the response field {string} should match the pattern {string}")
+    void fieldShouldMatchPattern(String key, String pattern) { assertFieldMatches(key, pattern) }
+
+    private void assertFieldMatches(String key, String pattern) {
         String v = jsonPath(key)?.toString() ?: ""
         assertTrue("Field '${key}' = '${v}' does not match pattern '${pattern}'".toString(),
                 v.matches(pattern))
@@ -480,40 +586,46 @@ class PortalSteps {
         assertNotEquals("Stored '${n1}' equals '${n2}' — both '${v1}'".toString(), v1, v2)
     }
 
-    @Then("{string} should equal {string}")
-    void storedEqual(String n1, String n2) {
-        String v1 = storedVars[n1] ?: ""
-        String v2 = storedVars[n2] ?: ""
-        assertEquals("Stored '${n1}' != '${n2}'".toString(), v1, v2)
-    }
-
     // ═════ UI: ELEMENT EXISTENCE ═══════════════════════════════════
 
-    // covers all "the page contains a/an X element with data-testid Y" variants
-    // and "the element with data-testid Y should exist"
-    @Then("the page contains (an|a) (select |input |button )?element with data-testid {string}")
-    @Then("the page contains a (select |input )?button with data-testid {string}")
-    @Then("the element with data-testid {string} should exist")
-    void elementExists(String _article, String _tag, String testId) {
-        assertFalse("Element '${testId}' not found".toString(), allByTestId(testId).isEmpty())
-    }
-
-    // Simpler form without the tag noise
     @Then("the page contains an element with data-testid {string}")
-    void elementExistsSimple(String testId) {
+    void pageContainsElement(String testId) { assertExists(testId) }
+
+    @Then("the page contains a select element with data-testid {string}")
+    void pageContainsSelect(String testId) { assertExists(testId) }
+
+    @Then("the page contains an input element with data-testid {string}")
+    void pageContainsInput(String testId) { assertExists(testId) }
+
+    @Then("the page contains a button with data-testid {string}")
+    void pageContainsButton(String testId) { assertExists(testId) }
+
+    @Then("the element with data-testid {string} should exist")
+    void elementShouldExist(String testId) { assertExists(testId) }
+
+    private void assertExists(String testId) {
         assertFalse("Element '${testId}' not found".toString(), allByTestId(testId).isEmpty())
     }
 
     // ═════ UI: VISIBILITY ══════════════════════════════════════════
 
-    @Then("the element with data-testid {string} (is|should be) visible")
-    void elementVisible(String testId, String _verb) {
+    @Then("the element with data-testid {string} is visible")
+    void elementVisible(String testId) { assertVisible(testId) }
+
+    @Then("the element with data-testid {string} should be visible")
+    void elementShouldBeVisible(String testId) { assertVisible(testId) }
+
+    private void assertVisible(String testId) {
         assertTrue("Element '${testId}' not displayed".toString(), byTestId(testId).isDisplayed())
     }
 
     @Then("the element with data-testid {string} should not be visible")
+    void elementShouldNotBeVisible(String testId) { assertNotVisible(testId) }
+
     @Then("the element with data-testid {string} is not visible")
-    void elementNotVisible(String testId) {
+    void elementNotVisible(String testId) { assertNotVisible(testId) }
+
+    private void assertNotVisible(String testId) {
         List<WebElement> els = allByTestId(testId)
         if (els.isEmpty()) return  // not present == not visible
         assertFalse("Element '${testId}' is visible but should not be".toString(),
@@ -530,8 +642,12 @@ class PortalSteps {
     }
 
     @Then("the element with id {string} does not have CSS class {string}")
+    void elementDoesNotHaveClass(String id, String cls) { assertNotHasClass(id, cls) }
+
     @Then("the element with id {string} should NOT have CSS class {string}")
-    void elementNotHasClass(String id, String cls) {
+    void elementShouldNotHaveClass(String id, String cls) { assertNotHasClass(id, cls) }
+
+    private void assertNotHasClass(String id, String cls) {
         String classes = driver().findElement(By.id(id)).getAttribute("class") ?: ""
         assertFalse("Element id='${id}' unexpectedly has class '${cls}'".toString(),
                 classes.split(/\s+/).contains(cls))
@@ -539,8 +655,13 @@ class PortalSteps {
 
     // ═════ UI: TAG / TYPE ══════════════════════════════════════════
 
-    @Then("the element with data-testid {string} should be a/an {string} element")
-    void elementIsTag(String testId, String tag) {
+    @Then("the element with data-testid {string} should be a {string} element")
+    void elementIsTagA(String testId, String tag) { assertIsTag(testId, tag) }
+
+    @Then("the element with data-testid {string} should be an {string} element")
+    void elementIsTagAn(String testId, String tag) { assertIsTag(testId, tag) }
+
+    private void assertIsTag(String testId, String tag) {
         assertEquals(tag.toLowerCase(), byTestId(testId).getTagName().toLowerCase())
     }
 
@@ -558,7 +679,12 @@ class PortalSteps {
     }
 
     @Then("the element with data-testid {string} is disabled")
-    void elementDisabled(String testId) {
+    void elementDisabled(String testId) { assertDisabled(testId) }
+
+    @Then("the element with data-testid {string} should be disabled")
+    void elementShouldBeDisabled(String testId) { assertDisabled(testId) }
+
+    private void assertDisabled(String testId) {
         WebElement el = byTestId(testId)
         String dis = el.getAttribute("disabled")
         boolean isDisabled = (dis != null && !dis.equalsIgnoreCase("false")) || !el.isEnabled()
@@ -566,22 +692,34 @@ class PortalSteps {
     }
 
     @Then("the element with data-testid {string} is not disabled")
+    void elementNotDisabled(String testId) { assertEnabled(testId) }
+
     @Then("the element with data-testid {string} is enabled")
-    void elementEnabled(String testId) {
+    void elementEnabled(String testId) { assertEnabled(testId) }
+
+    private void assertEnabled(String testId) {
         WebElement el = byTestId(testId)
         assertTrue("Element '${testId}' is disabled".toString(),
                 el.isEnabled() && el.getAttribute("disabled") == null)
     }
 
-    // ═════ UI: TEXT ═══════════════════════════════════════════════
+    // ═════ UI: TEXT ════════════════════════════════════════════════
 
     @Then("the element with data-testid {string} should have text {string}")
     void elementExactText(String testId, String text) {
         assertEquals(text, byTestId(testId).getText().trim())
     }
 
-    @Then("the element with data-testid {string} (should contain the text|text should contain|text contains) {string}")
-    void elementTextContains(String testId, String _verb, String text) {
+    @Then("the element with data-testid {string} should contain the text {string}")
+    void elementShouldContainText(String testId, String text) { assertTextContains(testId, text) }
+
+    @Then("the element with data-testid {string} text should contain {string}")
+    void elementTextShouldContain(String testId, String text) { assertTextContains(testId, text) }
+
+    @Then("the element with data-testid {string} text contains {string}")
+    void elementTextContains(String testId, String text) { assertTextContains(testId, text) }
+
+    private void assertTextContains(String testId, String text) {
         String actual = byTestId(testId).getText()
         assertTrue("Element '${testId}' text was '${actual}', expected to contain '${text}'".toString(),
                 actual.contains(text))
@@ -607,8 +745,12 @@ class PortalSteps {
     // ═════ UI: SELECT OPTIONS ══════════════════════════════════════
 
     @Then("the select element with data-testid {string} has an option with value {string}")
+    void selectHasOptionWithValue(String testId, String value) { assertOptionByValueExists(testId, value) }
+
     @Then("the element with data-testid {string} has an option with value {string}")
-    void selectHasOptionWithValue(String testId, String value) {
+    void elementHasOptionWithValue(String testId, String value) { assertOptionByValueExists(testId, value) }
+
+    private void assertOptionByValueExists(String testId, String value) {
         List<WebElement> opts = driver().findElements(
                 By.cssSelector("[data-testid='${testId}'] option"))
         assertTrue("Select '${testId}' missing option value='${value}'. Have: ${opts.collect { it.getAttribute('value') }}".toString(),
@@ -616,16 +758,25 @@ class PortalSteps {
     }
 
     @Then("the select element with data-testid {string} should NOT have an option with value {string}")
+    void selectShouldNotHaveOptionWithValue(String testId, String value) { assertOptionByValueAbsent(testId, value) }
+
     @Then("the element with data-testid {string} should NOT have an option with value {string}")
-    void selectNotHasOptionWithValue(String testId, String value) {
+    void elementShouldNotHaveOptionWithValue(String testId, String value) { assertOptionByValueAbsent(testId, value) }
+
+    private void assertOptionByValueAbsent(String testId, String value) {
         List<WebElement> opts = driver().findElements(
                 By.cssSelector("[data-testid='${testId}'] option"))
         assertFalse("Select '${testId}' unexpectedly has option value='${value}'".toString(),
                 opts.any { it.getAttribute("value") == value })
     }
 
-    @Then("the (select )?element with data-testid {string} contains an option with text {string}")
-    void selectHasOptionWithText(String _s, String testId, String text) {
+    @Then("the select element with data-testid {string} contains an option with text {string}")
+    void selectContainsOptionWithText(String testId, String text) { assertOptionByTextExists(testId, text) }
+
+    @Then("the element with data-testid {string} contains an option with text {string}")
+    void elementContainsOptionWithText(String testId, String text) { assertOptionByTextExists(testId, text) }
+
+    private void assertOptionByTextExists(String testId, String text) {
         List<WebElement> opts = driver().findElements(
                 By.cssSelector("[data-testid='${testId}'] option"))
         assertTrue("Select '${testId}' missing option text='${text}'".toString(),
